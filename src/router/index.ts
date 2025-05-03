@@ -5,11 +5,6 @@ import HelloWorld from '../components/HelloWorld.vue'
 
 const routes = [
   {
-    path: '/auth',
-    name: 'Auth',
-    component: Auth,
-  },
-  {
     path: '/',
     component: DefaultLayout,
     children: [
@@ -18,8 +13,21 @@ const routes = [
         name: 'HelloWorld',
         component: HelloWorld,
       },
+      {
+        path: '/auth',
+        name: 'Auth',
+        component: Auth,
+        meta: { hideFooter: true },
+      },
+      {
+        path: '/:pathMatch(.*)*',
+        name: 'NotFound',
+        component: () => import('../pages/NotFound.vue'),
+        meta: { hideFooter: true },
+      },
     ],
-  },
+  }
+  
 ]
 
 const router = createRouter({
