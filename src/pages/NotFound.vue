@@ -7,7 +7,7 @@
         Извините, мы не смогли найти страницу, которую вы ищете.
       </p>
       <div class="flex flex-col sm:flex-row justify-center gap-4">
-        <button href="/" class="btn btn-primary">Вернуться на главную</button>
+        <router-link to="/" class="btn btn-primary">Вернуться на главную</router-link>
       </div>
     </div>
   </main>
