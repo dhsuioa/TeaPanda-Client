@@ -1,6 +1,6 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { apiFetch } from '../utils/api'
+import { authService } from '../api/authService'
 
 interface TelegramUser {
   id: number
@@ -10,16 +10,13 @@ interface TelegramUser {
   auth_date: number
   hash: string
 }
-
 export function useTelegramAuth() {
   const isTelegramMiniApp = ref(false)
   const router = useRouter()
   let isAuthenticating = false
 
   const checkTelegramMiniApp = () => {
-    const hasWebApp = !!window.Telegram?.WebApp
-    const hasInitData = !!window.Telegram?.WebApp?.initData
-    isTelegramMiniApp.value = hasWebApp && hasInitData
+    isTelegramMiniApp.value = !!window.Telegram?.WebApp?.initData
     console.log('isTelegramMiniApp:', isTelegramMiniApp.value)
   }
 
@@ -31,40 +28,21 @@ export function useTelegramAuth() {
     return entries.join('\n')
   }
 
-  const authenticate = async (authData: TelegramUser | { initData: string }) => {
+  const authenticateWithService = async (authData: TelegramUser | { initData: string }) => {
     if (isAuthenticating) {
       console.log('Authentication already in progress, skipping')
       return
     }
     isAuthenticating = true
-    console.log('Sending auth data:', JSON.stringify(authData, null, 2))
-    if ('id' in authData) {
-      console.log('Data check string (web):', createDataCheckString(authData))
-    }
+    console.log('Sending auth data to service:', JSON.stringify(authData, null, 2))
     try {
-      const result = await apiFetch<{ token: string }>(
-        `${import.meta.env.VITE_API_BASE_URL}/api/v1/auth`,
-        {
-          method: 'POST',
-          body: JSON.stringify(authData),
-        }
-      )
+      const result = await authService.authenticate(authData)
       localStorage.setItem('jwt', result.token)
-      router.push('/home')
+      // useAuthStore().setAuthData(result.token, decodedUserData)
+      router.push('/')
     } catch (err: any) {
-      console.error('Auth error:', err.message)
-      try {
-        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/auth`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(authData),
-        })
-        const errorBody = await response.json()
-        console.log('Server error response:', JSON.stringify(errorBody, null, 2))
-      } catch (fetchErr) {
-        console.error('Failed to fetch error body:', fetchErr)
-      }
-      alert('Ошибка авторизации')
+      console.error('Auth error from service:', err.message || err)
+      alert('Ошибка авторизации: ' + (err.message || 'Проверьте данные или попробуйте позже'))
     } finally {
       isAuthenticating = false
     }
@@ -72,24 +50,18 @@ export function useTelegramAuth() {
 
   const onTelegramAuth = (user: TelegramUser) => {
     console.log('Web auth data:', JSON.stringify(user, null, 2))
-    authenticate(user)
+    authenticateWithService(user)
   }
 
   const initMiniAppAuth = () => {
     if (isTelegramMiniApp.value && !isAuthenticating) {
       const initData = window.Telegram.WebApp.initData
+      const authData = { initData }
       console.log('Raw initData:', initData)
       const params = new URLSearchParams(initData)
-      console.log('Parsed initData params:', Array.from(params.entries()))
-      // Логируем data-check-string из initData
       const initDataCheckString = createDataCheckString(Object.fromEntries(params))
       console.log('initData check string:', initDataCheckString)
-      const user = JSON.parse(params.get('user') || '{}')
-      console.log('Parsed user object:', JSON.stringify(user, null, 2))
-      const authData = { initData }
-      console.log('Mini Apps hash:', params.get('hash'))
-      console.log('Mini Apps signature:', params.get('signature'))
-      authenticate(authData)
+      authenticateWithService(authData)
     }
   }
 
@@ -100,6 +72,7 @@ export function useTelegramAuth() {
     webAppScript.onload = () => {
       checkTelegramMiniApp()
       if (isTelegramMiniApp.value) {
+        window.Telegram.WebApp.ready()
         initMiniAppAuth()
       } else {
         const widgetScript = document.createElement('script')

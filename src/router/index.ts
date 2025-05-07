@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import Auth from '../pages/Auth.vue'
 import DefaultLayout from '../layouts/DefaultLayout.vue'
 import HelloWorld from '../components/HelloWorld.vue'
+import TeaDetail from '../pages/TeaDetail.vue'
 
 const routes = [
   {
@@ -20,6 +21,11 @@ const routes = [
         meta: { hideFooter: true },
       },
       {
+        path: '/tea/:id',
+        name: 'TeaDetail',
+        component: TeaDetail,
+      },
+      {
         path: '/:pathMatch(.*)*',
         name: 'NotFound',
         component: () => import('../pages/NotFound.vue'),
@@ -27,7 +33,6 @@ const routes = [
       },
     ],
   }
-  
 ]
 
 const router = createRouter({

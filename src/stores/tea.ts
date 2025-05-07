@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { apiFetch } from '../utils/api'
+import { teaService } from '../api/teaService'
 import type { Tea } from '../types/tea'
 
 export const useTeaStore = defineStore('tea', () => {
@@ -13,28 +13,57 @@ export const useTeaStore = defineStore('tea', () => {
 
   const totalPages = computed(() => Math.ceil(totalTeas.value / pageSize))
   const hasPreviousPage = computed(() => currentPage.value > 1)
-  const hasNextPage = computed(() => (currentPage.value * pageSize) < totalTeas.value)
+  const hasNextPage = computed(() => currentPage.value * pageSize < totalTeas.value)
 
   const fetchTeas = async () => {
+    loading.value = true
+    error.value = null
     try {
-      loading.value = true
-      const response = await apiFetch<{ items: Tea[]; total: number }>(
-        `${import.meta.env.VITE_API_BASE_URL}/api/v1/teas?page=${currentPage.value}&limit=${pageSize}`
-      )
+      const response = await teaService.getTeas(currentPage.value, pageSize)
       teas.value = response.items
       totalTeas.value = response.total
     } catch (err: any) {
-      error.value = 'Не удалось загрузить данные о чаях'
-      console.error(err)
+      error.value = err.message || 'Не удалось загрузить данные о чаях'
+      console.error('Fetch teas error:', err)
     } finally {
       loading.value = false
     }
   }
 
   const setPage = (page: number) => {
-    currentPage.value = page
-    fetchTeas()
+    if (page > 0 && page <= totalPages.value) {
+        currentPage.value = page
+        fetchTeas()
+    }
   }
 
-  return { teas, currentPage, pageSize, totalTeas, totalPages, hasPreviousPage, hasNextPage, loading, error, fetchTeas, setPage }
+  const rateTea = async (teaId: string, ratingValue: number) => {
+    try {
+      await teaService.evaluateTea(teaId, ratingValue)
+      const teaToUpdate = teas.value.find(t => t.id === teaId)
+      if (teaToUpdate) {
+        teaToUpdate.rating = ratingValue
+      }
+      await fetchTeas()
+    } catch (err: any) {
+      console.error('Error rating tea:', err)
+      alert('Не удалось обновить рейтинг: ' + (err.message || 'Ошибка сервера'))
+      throw err
+    }
+  }
+
+  return {
+    teas,
+    currentPage,
+    pageSize,
+    totalTeas,
+    totalPages,
+    hasPreviousPage,
+    hasNextPage,
+    loading,
+    error,
+    fetchTeas,
+    setPage,
+    rateTea,
+  }
 })

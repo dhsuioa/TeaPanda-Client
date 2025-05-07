@@ -1,5 +1,9 @@
 <template>
-  <div class="card w-64 bg-base-100 shadow-md hover:shadow-lg transition-shadow" :class="{ 'opacity-50': tea.isDeleted }">
+  <div 
+    class="card max-sm:w-38 w-64 bg-base-100 shadow-md hover:shadow-lg transition-all cursor-pointer hover:scale-103 hover:outline hover:outline-primary" 
+    :class="{ 'opacity-50': tea.isDeleted }" 
+    @click="goToTeaDetail"
+  >
     <div class="card-body p-4">
       <span v-if="tea.isDeleted" class="badge badge-secondary">Нет в наличии</span>
       <div class="flex justify-between items-center">
@@ -18,7 +22,7 @@
 
       <p v-if="tea.description" class="text-sm text-base-content/80">{{ tea.description }}</p>
 
-      <div class="mt-2">
+      <div class="mt-2" @click.stop>
         <label class="text-sm">Ваш рейтинг:</label>
         <div class="flex items-center">
           <div class="rating rating-sm">
@@ -29,8 +33,9 @@
               :name="'user-rating-' + tea.id"
               class="mask mask-star-2 bg-orange-400"
               :value="star"
-              v-model="userRating"
+              v-model="localUserRating"
               @change="updateUserRating(star)"
+              :disabled="!authStore.token"
             />
           </div>
           <span v-if="tea.averageRating !== undefined" class="ml-4 text-sm">
@@ -50,26 +55,38 @@
 </template>
 
 <script setup lang="ts">
-import { defineProps, ref } from 'vue'
-import { apiFetch } from '../utils/api'
+import { defineProps, ref, watch } from 'vue'
+import { useTeaStore } from '../stores/tea'
+import { useAuthStore } from '../stores/auth'
+import { useRouter } from 'vue-router'
 import type { Tea } from '../types/tea'
 
 const props = defineProps<{
   tea: Tea
 }>()
 
-const userRating = ref<number>(props.tea.rating)
+const teaStore = useTeaStore()
+const authStore = useAuthStore()
+const router = useRouter()
+
+
+const localUserRating = ref<number>(props.tea.rating)
+
+watch(() => props.tea.rating, (newRating) => {
+  localUserRating.value = newRating
+})
 
 const updateUserRating = async (rating: number) => {
   try {
-    await apiFetch(`/api/v1/teas/${props.tea.id}/evaluate`, {
-      method: 'POST',
-      body: JSON.stringify({ rating }),
-    })
-    userRating.value = rating
+    await teaStore.rateTea(props.tea.id, rating)
+    alert('Рейтинг обновлен!')
   } catch (err) {
-    console.error('Ошибка при обновлении рейтинга:', err)
-    alert('Не удалось обновить рейтинг')
+    console.error('Ошибка при обновлении рейтинга в компоненте:', err)
+    localUserRating.value = props.tea.rating
   }
+}
+
+const goToTeaDetail = () => {
+  router.push(`/tea/${props.tea.id}`)
 }
 </script>
